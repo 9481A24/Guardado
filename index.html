@@ -1,1 +1,279 @@
 
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <title>Entradas Financeiras</title>
+  <style>
+    body {
+      font-family: 'Segoe UI', sans-serif;
+      background: #f0f2f5;
+      padding: 20px;
+      color: #333;
+      max-width: 720px;
+      margin: auto;
+    }
+    nav {
+      margin-bottom: 20px;
+    }
+    nav a {
+      margin-right: 15px;
+      color: #007bff;
+      text-decoration: none;
+      font-weight: bold;
+    }
+    nav a:hover {
+      text-decoration: underline;
+    }
+    h2, h3 {
+      text-align: center;
+    }
+    label {
+      display: block;
+      margin-top: 15px;
+      font-weight: bold;
+    }
+    input[type="text"],
+    input[type="date"],
+    input[type="number"] {
+      width: 100%;
+      padding: 8px;
+      margin-top: 5px;
+      border-radius: 8px;
+      border: 1px solid #ccc;
+    }
+    button {
+      width: 100%;
+      margin-top: 20px;
+      padding: 12px;
+      font-size: 16px;
+      border-radius: 8px;
+      border: none;
+      background-color: #28a745;
+      color: white;
+      cursor: pointer;
+      transition: background-color .3s;
+    }
+    button:hover {
+      background-color: #218838;
+    }
+    .entrada-bloco {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 15px;
+    }
+    .entrada-bloco > div {
+      flex: 1 1 48%;
+      min-width: 300px;
+    }
+    #resultado {
+      margin-top: 30px;
+      white-space: pre-wrap;
+      background: #fff;
+      padding: 15px;
+      border-radius: 10px;
+      border: 1px solid #ccc;
+    }
+  </style>
+</head>
+<body>
+
+<nav>
+  <a href="index.html">Entradas</a> |
+  <a href="resumo.html">Resumo</a> |
+  <a href="historico.html">Histórico</a>
+</nav>
+
+<h2>📒 Registro de Entradas</h2>
+
+<h3>Entradas com data digitada</h3>
+<div class="entrada-bloco">
+  <div>
+    <label>📝 Entrada 1 Origem:</label>
+    <input type="text" id="origem1" value="Cliente X" />
+    <label>📅 Data Digitada:</label>
+    <input type="date" id="data1" />
+    <label>💵 Valor (R$):</label>
+    <input type="number" id="valor1" step="0.01" value="200" />
+  </div>
+  <div>
+    <label>📝 Entrada 2 Origem:</label>
+    <input type="text" id="origem2" value="Cliente Y" />
+    <label>📅 Data Digitada:</label>
+    <input type="date" id="data2" />
+    <label>💵 Valor (R$):</label>
+    <input type="number" id="valor2" step="0.01" value="350" />
+  </div>
+</div>
+
+<h3>Entradas com data programada fixa</h3>
+<div class="entrada-bloco">
+  <div>
+    <label>📝 Entrada 3 Origem:</label>
+    <input type="text" id="origem3" value="Cliente A" />
+    <label>💵 Valor (R$):</label>
+    <input type="number" id="valor3" step="0.01" value="300" />
+  </div>
+  <div>
+    <label>📝 Entrada 4 Origem:</label>
+    <input type="text" id="origem4" value="Cliente B" />
+    <label>💵 Valor (R$):</label>
+    <input type="number" id="valor4" step="0.01" value="300" />
+  </div>
+</div>
+
+<button onclick="registrarEntradas()">Registrar Entradas</button>
+
+<h3>Importar entradas de arquivo CSV</h3>
+<input type="file" id="fileInput" accept=".csv" />
+<button onclick="importarCSV()">Importar CSV</button>
+
+<!-- 🔍 BOTÃO BUSCAR -->
+<button onclick="buscarEntradas()">🔍 Buscar Entradas</button>
+<div id="resultado"></div>
+
+<!-- Firebase e JS -->
+<script type="module">
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+  import { getFirestore, collection, addDoc, getDocs, Timestamp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+
+  const firebaseConfig = {
+    apiKey: "AIzaSyBqYQKqnPKSm0GyziIsGNmyamEevpki0YE",
+    authDomain: "controlefinanceiro-23fce.firebaseapp.com",
+    projectId: "controlefinanceiro-23fce",
+    storageBucket: "controlefinanceiro-23fce.appspot.com",
+    messagingSenderId: "967993151955",
+    appId: "1:967993151955:web:ac2711081550ee34519f26"
+  };
+
+  const app = initializeApp(firebaseConfig);
+  const db = getFirestore(app);
+
+  const datasProgramadas = {
+    3: '2025-07-15',
+    4: '2025-07-20'
+  };
+
+  function formatDataHora(d) {
+    return d.toLocaleDateString() + ' ' + d.toLocaleTimeString();
+  }
+
+  window.registrarEntradas = async function () {
+    const hoje = new Date();
+    let totalNovo = 0;
+    let historicoNovo = '';
+
+    for (let i = 1; i <= 2; i++) {
+      const origem = document.getElementById(`origem${i}`).value.trim();
+      const valor = parseFloat(document.getElementById(`valor${i}`).value);
+      const dataStr = document.getElementById(`data${i}`).value;
+      if (!origem || isNaN(valor) || valor <= 0 || !dataStr) continue;
+
+      const dataEntrada = new Date(dataStr);
+      if (dataEntrada <= hoje) {
+        await addDoc(collection(db, "entradas"), {
+          origem: origem,
+          valor: valor,
+          data: Timestamp.fromDate(dataEntrada)
+        });
+        totalNovo += valor;
+        historicoNovo += `📅 ${formatDataHora(new Date())}\nCliente: ${origem}\nValor: R$ ${valor.toFixed(2)}\n------------------------------\n`;
+      }
+    }
+
+    for (let i = 3; i <= 4; i++) {
+      const origem = document.getElementById(`origem${i}`).value.trim();
+      const valor = parseFloat(document.getElementById(`valor${i}`).value);
+      const dataStr = datasProgramadas[i];
+      const dataEntrada = new Date(dataStr);
+      if (!origem || isNaN(valor) || valor <= 0) continue;
+
+      if (dataEntrada <= hoje) {
+        await addDoc(collection(db, "entradas"), {
+          origem: origem,
+          valor: valor,
+          data: Timestamp.fromDate(dataEntrada)
+        });
+        totalNovo += valor;
+        historicoNovo += `📅 ${formatDataHora(new Date())}\nCliente: ${origem}\nValor: R$ ${valor.toFixed(2)}\n------------------------------\n`;
+      }
+    }
+
+    const totalAntigo = parseFloat(localStorage.getItem('total')) || 0;
+    const totalFinal = totalAntigo + totalNovo;
+
+    localStorage.setItem('historico', (localStorage.getItem('historico') || '') + historicoNovo);
+    localStorage.setItem('total', totalFinal.toFixed(2));
+
+    alert('Entradas registradas com sucesso!\n\nTotal atualizado: R$ ' + totalFinal.toFixed(2));
+  };
+
+  window.importarCSV = async function () {
+    const fileInput = document.getElementById('fileInput');
+    const file = fileInput.files[0];
+    if (!file) {
+      alert('Selecione um arquivo CSV.');
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = async function (e) {
+      const texto = e.target.result;
+      const linhas = texto.split('\n');
+      let totalNovo = 0;
+      let historicoNovo = '';
+      const hoje = new Date();
+
+      for (const linha of linhas) {
+        const colunas = linha.trim().split(',');
+        if (colunas.length < 3) continue;
+
+        const origem = colunas[0].trim();
+        const dataStr = colunas[1].trim();
+        const valor = parseFloat(colunas[2].trim());
+        const dataEntrada = new Date(dataStr);
+
+        if (!origem || isNaN(valor) || valor <= 0 || !dataStr) continue;
+
+        if (dataEntrada <= hoje) {
+          await addDoc(collection(db, "entradas"), {
+            origem: origem,
+            valor: valor,
+            data: Timestamp.fromDate(dataEntrada)
+          });
+          totalNovo += valor;
+          historicoNovo += `📅 ${formatDataHora(new Date())}\nCliente: ${origem}\nValor: R$ ${valor.toFixed(2)}\n------------------------------\n`;
+        }
+      }
+
+      const totalAntigo = parseFloat(localStorage.getItem('total')) || 0;
+      const totalFinal = totalAntigo + totalNovo;
+
+      localStorage.setItem('historico', (localStorage.getItem('historico') || '') + historicoNovo);
+      localStorage.setItem('total', totalFinal.toFixed(2));
+
+      alert('CSV importado!\n\nTotal atualizado: R$ ' + totalFinal.toFixed(2));
+    };
+    reader.readAsText(file);
+  };
+
+  window.buscarEntradas = async function () {
+    const resultadoDiv = document.getElementById('resultado');
+    resultadoDiv.innerHTML = '⏳ Buscando dados...';
+
+    try {
+      const querySnapshot = await getDocs(collection(db, "entradas"));
+      let texto = '';
+      querySnapshot.forEach((doc) => {
+        const dados = doc.data();
+        const dataFormatada = dados.data.toDate().toLocaleDateString();
+        texto += `📅 ${dataFormatada}\nCliente: ${dados.origem}\nValor: R$ ${dados.valor.toFixed(2)}\n------------------------------\n`;
+      });
+      resultadoDiv.textContent = texto || '⚠️ Nenhuma entrada encontrada.';
+    } catch (erro) {
+      resultadoDiv.textContent = '❌ Erro ao buscar dados: ' + erro.message;
+    }
+  };
+</script>
+
+</body>
+</html>
